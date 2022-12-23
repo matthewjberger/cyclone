@@ -48,6 +48,21 @@ impl<T: Copy + Mul<T, Output = T>, const LEN: usize> Mul<T> for Vector<T, { LEN 
     }
 }
 
+impl<T: Copy + Mul<T, Output = T>, const LEN: usize> Mul<Vector<T, { LEN }>>
+    for Vector<T, { LEN }>
+{
+    type Output = Self;
+
+    fn mul(self, rhs: Vector<T, { LEN }>) -> Self::Output {
+        let mut elements: [T; LEN] = self.elements;
+        elements
+            .iter_mut()
+            .zip(rhs.elements.iter())
+            .for_each(|(a, b)| *a = *a * *b);
+        Self { elements }
+    }
+}
+
 impl<T: Add<Output = T> + Copy, const LEN: usize> Add for Vector<T, { LEN }> {
     type Output = Self;
     fn add(self, rhs: Self) -> Self {
@@ -135,7 +150,7 @@ impl Vector3 {
         &self[2]
     }
 
-    pub fn cross(&self, rhs: Self) -> Self {
+    pub fn cross(&self, rhs: &Self) -> Self {
         Self::new(
             self.y() * rhs.z() - self.z() * rhs.y(),
             self.z() * rhs.x() - self.x() * rhs.z(),
@@ -220,5 +235,23 @@ mod tests {
         let mut vector = Vector3::new(1.0, 2.0, 3.0);
         vector[1] = 0.0;
         assert_eq!(vector[1], 0.0);
+    }
+
+    #[test]
+    pub fn dot_product() {
+        let dot_product = Vector3::new(1.0, 2.0, 3.0).dot(&Vector3::new(3.0, 2.0, 1.0));
+        assert_eq!(dot_product, 10.0);
+    }
+
+    #[test]
+    pub fn cross_product() {
+        let cross_product = Vector3::new(1.0, 2.0, 3.0).cross(&Vector3::new(3.0, 3.0, 3.0));
+        assert_eq!(cross_product, Vector3::new(-3.0, 6.0, -3.0));
+    }
+
+    #[test]
+    pub fn scalar_product() {
+        let scalar_product = Vector3::new(1.0, 2.0, -3.0) * 3.0;
+        assert_eq!(scalar_product, Vector3::new(3.0, 6.0, -9.0));
     }
 }
