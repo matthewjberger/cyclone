@@ -1,5 +1,5 @@
 use crate::Real;
-use std::ops::{Add, Index, IndexMut, Mul, Sub};
+use std::ops::{Add, Index, IndexMut, Mul, Neg, Sub};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct Vector<T, const LEN: usize>
@@ -14,6 +14,14 @@ impl<T: Default + Copy, const LEN: usize> Default for Vector<T, { LEN }> {
         Self {
             elements: [T::default(); LEN],
         }
+    }
+}
+
+impl<T: Copy + Neg<Output = T>, const LEN: usize> Vector<T, { LEN }> {
+    pub fn inverse(&self) -> Self {
+        let mut elements: [T; LEN] = self.elements;
+        elements.iter_mut().for_each(|a| *a = -*a);
+        Self { elements }
     }
 }
 
@@ -84,12 +92,6 @@ impl<const LEN: usize> Vector<Real, { LEN }> {
         } else {
             *self
         }
-    }
-
-    pub fn inverse(&self) -> Self {
-        let mut elements: [Real; LEN] = self.elements;
-        elements.iter_mut().for_each(|a| *a = -*a);
-        Self { elements }
     }
 
     pub fn dot(&self, rhs: &Self) -> Real {
@@ -206,5 +208,17 @@ mod tests {
             Vector3::new(1.0, 2.0, 3.0) * 2.0,
             Vector3::new(2.0, 4.0, 6.0)
         );
+    }
+
+    #[test]
+    pub fn index() {
+        assert_eq!(Vector3::new(1.0, 2.0, 3.0)[1], 2.0);
+    }
+
+    #[test]
+    pub fn index_mut() {
+        let mut vector = Vector3::new(1.0, 2.0, 3.0);
+        vector[1] = 0.0;
+        assert_eq!(vector[1], 0.0);
     }
 }
