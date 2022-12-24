@@ -1,4 +1,4 @@
-use impulse::{Particle, Real};
+use impulse::{Particle, Real, Vector3};
 use kiss3d::{
 	event::{Action, Key, WindowEvent},
 	light::Light,
