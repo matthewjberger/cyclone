@@ -1,5 +1,5 @@
 #![forbid(unsafe_code)]
-#![warn(clippy::all, clippy::pedantic, clippy::nursery, clippy::cargo)]
+#![forbid(clippy::all, clippy::pedantic, clippy::nursery, clippy::cargo)]
 
 pub mod particle;
 pub mod vec;
