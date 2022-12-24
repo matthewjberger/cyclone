@@ -1,6 +1,6 @@
 use crate::{vector::Vector3, Real};
 
-#[derive(Debug, Default, Clone, Copy)]
+#[derive(Debug, Default, Clone, Copy, PartialEq)]
 pub struct Particle {
     /// Holds the linear position of the particle in world space
     pub position: Vector3,
@@ -67,5 +67,47 @@ impl Particle {
 
         // Clear any accumulated forces
         self.force_accumulator = Vector3::zero();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    pub fn integrate() {
+        let mut particle = Particle {
+            inverse_mass: Real::from(2.0).recip(),  // 2.0 kg
+            velocity: Vector3::new(0.0, 0.0, 35.0), // 35 m/s
+            acceleration: Vector3::new(0.0, -1.0, 0.0),
+            damping: 0.99,
+            force_accumulator: Vector3::zero(),
+            position: Vector3::zero(),
+        };
+
+        particle.integrate(4.0);
+        assert_eq!(
+            particle,
+            Particle {
+                position: Vector3::new(0.0, 0.0, 140.0),
+                velocity: Vector3::new(0.0, -3.842384, 33.62086),
+                acceleration: Vector3::new(0.0, -1.0, 0.0),
+                damping: 0.99,
+                inverse_mass: 0.5,
+                force_accumulator: Vector3::zero(),
+            }
+        );
+    }
+
+    #[test]
+    pub fn mass() {
+        assert_eq!(
+            Particle {
+                inverse_mass: Real::from(2.0).recip(), // 2.0 kg
+                ..Default::default()
+            }
+            .mass(),
+            Real::from(2.0)
+        );
     }
 }
