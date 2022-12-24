@@ -1,12 +1,21 @@
-use crate::Real;
+use crate::{reals_are_equal, Real};
 use std::ops::{Add, AddAssign, Index, IndexMut, Mul, MulAssign, Neg, Sub};
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone)]
 pub struct Vector<T, const LEN: usize>
 where
     [T; LEN]:,
 {
     elements: [T; LEN],
+}
+
+impl<const LEN: usize> PartialEq for Vector<Real, { LEN }> {
+    fn eq(&self, rhs: &Self) -> bool {
+        self.elements
+            .iter()
+            .zip(rhs.elements.iter())
+            .all(|(a, b)| reals_are_equal(*a, *b))
+    }
 }
 
 impl<T: Default + Copy, const LEN: usize> Default for Vector<T, { LEN }> {
@@ -226,7 +235,7 @@ mod tests {
     #[test]
     pub fn magnitude() {
         let (x, y, z) = (1.0, 2.0, 3.0);
-        let magnitude_squared = (x as Real).mul_add(x, y * y);
+        let magnitude_squared = (x as Real).mul_add(x, y * y).add(z * z);
         assert_equal(Vector3::new(x, y, z).magnitude_squared(), magnitude_squared);
         assert_equal(Vector3::new(x, y, z).magnitude(), magnitude_squared.sqrt());
     }
@@ -234,7 +243,7 @@ mod tests {
     #[test]
     pub fn normalize() {
         let (x, y, z) = (1.0, 2.0, 3.0);
-        let magnitude = ((x as Real).mul_add(x, y * y) as Real).sqrt();
+        let magnitude = (x as Real).mul_add(x, y * y).add(z * z).sqrt();
         assert_eq!(
             Vector3::new(x, y, z).normalize(),
             Vector3::new(x / magnitude, y / magnitude, z / magnitude)

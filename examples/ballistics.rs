@@ -164,9 +164,9 @@ fn main() {
             }
 
             bullet.set_local_translation(Translation3::new(
-                round.particle.position.x(),
-                round.particle.position.y(),
-                round.particle.position.z(),
+                round.particle.position.x() as _,
+                round.particle.position.y() as _,
+                round.particle.position.z() as _,
             ));
         }
     }
