@@ -191,9 +191,9 @@ mod tests {
     pub fn dimensions() {
         let (x, y, z) = (1.0, 2.0, 3.0);
         let vector = Vector3::new(x, y, z);
-        assert_eq!(vector.x(), &x);
-        assert_eq!(vector.y(), &y);
-        assert_eq!(vector.z(), &z);
+        assert_eq!(vector.x(), x);
+        assert_eq!(vector.y(), y);
+        assert_eq!(vector.z(), z);
     }
 
     #[test]
