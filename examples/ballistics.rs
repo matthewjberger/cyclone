@@ -49,19 +49,19 @@ impl Gun {
         {
             match self.next_shot_kind {
                 Shot::Pistol => {
-                    available_round.particle.inverse_mass = Real::from(2.0).recip(); // 2.0 kg
+                    available_round.particle.inverse_mass = (2.0 as Real).recip(); // 2.0 kg
                     available_round.particle.velocity = impulse::Vector3::new(0.0, 0.0, 35.0); // 35 m/s
                     available_round.particle.acceleration = impulse::Vector3::new(0.0, -1.0, 0.0);
                     available_round.particle.damping = 0.99;
                 }
                 Shot::Artillery => {
-                    available_round.particle.inverse_mass = Real::from(200.0).recip(); // 200.0 kg
+                    available_round.particle.inverse_mass = (200.0 as Real).recip(); // 200.0 kg
                     available_round.particle.velocity = impulse::Vector3::new(0.0, 30.0, 40.0); // 50 m/s
                     available_round.particle.acceleration = impulse::Vector3::new(0.0, -20.0, 0.0);
                     available_round.particle.damping = 0.99;
                 }
                 Shot::Fireball => {
-                    available_round.particle.inverse_mass = Real::from(1.0).recip(); // 1.0 kg - mostly blast damage
+                    available_round.particle.inverse_mass = (1.0 as Real).recip(); // 1.0 kg - mostly blast damage
                     available_round.particle.velocity = impulse::Vector3::new(0.0, 0.0, 10.0); // 5 m/s
                     available_round.particle.acceleration = impulse::Vector3::new(0.0, 0.6, 0.0); // Floats up
                     available_round.particle.damping = 0.9;
@@ -69,7 +69,7 @@ impl Gun {
                 Shot::Laser => {
                     // Note that this is the kind of laser bolt seen in films,
                     // not a realistic laser beam!
-                    available_round.particle.inverse_mass = Real::from(0.1).recip(); // 1.0 kg - mostly blast damage
+                    available_round.particle.inverse_mass = (0.1 as Real).recip(); // 1.0 kg - mostly blast damage
                     available_round.particle.velocity = impulse::Vector3::new(0.0, 0.0, 100.0); // 100 m/s
                     available_round.particle.acceleration = impulse::Vector3::new(0.0, 0.0, 0.0); // No gravity
                     available_round.particle.damping = 0.99;

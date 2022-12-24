@@ -220,7 +220,7 @@ mod tests {
     #[test]
     pub fn normalize() {
         let (x, y, z) = (1.0, 2.0, 3.0);
-        let magnitude = (Real::from(x * x + y * y + z * z)).sqrt();
+        let magnitude = ((x * x + y * y + z * z) as Real).sqrt();
         assert_eq!(
             Vector3::new(x, y, z).normalize(),
             Vector3::new(x / magnitude, y / magnitude, z / magnitude)

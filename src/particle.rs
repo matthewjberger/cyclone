@@ -77,7 +77,7 @@ mod tests {
     #[test]
     pub fn integrate() {
         let mut particle = Particle {
-            inverse_mass: Real::from(2.0).recip(),  // 2.0 kg
+            inverse_mass: (2.0 as Real).recip(),    // 2.0 kg
             velocity: Vector3::new(0.0, 0.0, 35.0), // 35 m/s
             acceleration: Vector3::new(0.0, -1.0, 0.0),
             damping: 0.99,
@@ -103,11 +103,11 @@ mod tests {
     pub fn mass() {
         assert_eq!(
             Particle {
-                inverse_mass: Real::from(2.0).recip(), // 2.0 kg
+                inverse_mass: (2 as Real).recip(), // 2.0 kg
                 ..Default::default()
             }
             .mass(),
-            Real::from(2.0)
+            2.0
         );
     }
 }
