@@ -3,5 +3,5 @@
 version = 3
 
 [[package]]
-name = "cyclone"
+name = "impulse"
 version = "0.1.0"

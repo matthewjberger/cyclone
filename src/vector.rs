@@ -1,5 +1,5 @@
 use crate::Real;
-use std::ops::{Add, Index, IndexMut, Mul, Neg, Sub};
+use std::ops::{Add, AddAssign, Index, IndexMut, Mul, MulAssign, Neg, Sub};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct Vector<T, const LEN: usize>
@@ -63,6 +63,21 @@ impl<T: Copy + Mul<T, Output = T>, const LEN: usize> Mul<Vector<T, { LEN }>>
     }
 }
 
+impl<T: Mul<Output = T> + Copy, const LEN: usize> MulAssign for Vector<T, { LEN }> {
+    fn mul_assign(&mut self, rhs: Self) {
+        self.elements
+            .iter_mut()
+            .zip(rhs.elements.iter())
+            .for_each(|(a, b)| *a = *a * *b);
+    }
+}
+
+impl<T: Copy + Mul<T, Output = T>, const LEN: usize> MulAssign<T> for Vector<T, { LEN }> {
+    fn mul_assign(&mut self, rhs: T) {
+        self.elements.iter_mut().for_each(|a| *a = *a * rhs);
+    }
+}
+
 impl<T: Add<Output = T> + Copy, const LEN: usize> Add for Vector<T, { LEN }> {
     type Output = Self;
     fn add(self, rhs: Self) -> Self {
@@ -72,6 +87,15 @@ impl<T: Add<Output = T> + Copy, const LEN: usize> Add for Vector<T, { LEN }> {
             .zip(rhs.elements.iter())
             .for_each(|(a, b)| *a = *a + *b);
         Self { elements }
+    }
+}
+
+impl<T: Add<Output = T> + Copy, const LEN: usize> AddAssign for Vector<T, { LEN }> {
+    fn add_assign(&mut self, rhs: Self) {
+        self.elements
+            .iter_mut()
+            .zip(rhs.elements.iter())
+            .for_each(|(a, b)| *a = *a + *b);
     }
 }
 
@@ -210,6 +234,13 @@ mod tests {
     }
 
     #[test]
+    pub fn add_assign() {
+        let mut vector = Vector3::new(1.0, 2.0, 3.0);
+        vector += Vector3::new(1.0, 2.0, 3.0);
+        assert_eq!(vector, Vector3::new(2.0, 4.0, 6.0));
+    }
+
+    #[test]
     pub fn sub() {
         assert_eq!(
             Vector3::new(2.0, 4.0, 6.0) - Vector3::new(1.0, 2.0, 3.0),
@@ -253,5 +284,19 @@ mod tests {
     pub fn scalar_product() {
         let scalar_product = Vector3::new(1.0, 2.0, -3.0) * 3.0;
         assert_eq!(scalar_product, Vector3::new(3.0, 6.0, -9.0));
+    }
+
+    #[test]
+    pub fn mul_assign_scalar() {
+        let mut vector = Vector3::new(1.0, 2.0, -3.0);
+        vector *= 3.0;
+        assert_eq!(vector, Vector3::new(3.0, 6.0, -9.0));
+    }
+
+    #[test]
+    pub fn mul_assign_vector() {
+        let mut vector = Vector3::new(1.0, 2.0, -3.0);
+        vector *= Vector3::new(3.0, 3.0, 3.0);
+        assert_eq!(vector, Vector3::new(3.0, 6.0, -9.0));
     }
 }
