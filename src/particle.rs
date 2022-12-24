@@ -1,6 +1,6 @@
 use crate::{vector::Vector3, Real};
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, Copy)]
 pub struct Particle {
     /// Holds the linear position of the particle in world space
     pub position: Vector3,
@@ -50,7 +50,7 @@ impl Particle {
     /// This function uses a Newton-Euler integration method, which is a
     /// linear approximation to the correct integral. For this reason it
     /// may be inaccurate in some cases.
-    fn integrate(&mut self, duration: Real) {
+    pub fn integrate(&mut self, duration: Real) {
         // Infinite mass should not be integrated
         if self.inverse_mass <= 0.0 && duration > 0.0 {
             return;

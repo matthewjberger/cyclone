@@ -162,16 +162,16 @@ impl Vector3 {
         Self::new(0.0, 0.0, 1.0)
     }
 
-    pub fn x(&self) -> &Real {
-        &self[0]
+    pub fn x(&self) -> Real {
+        self[0]
     }
 
-    pub fn y(&self) -> &Real {
-        &self[1]
+    pub fn y(&self) -> Real {
+        self[1]
     }
 
-    pub fn z(&self) -> &Real {
-        &self[2]
+    pub fn z(&self) -> Real {
+        self[2]
     }
 
     pub fn cross(&self, rhs: &Self) -> Self {
