@@ -32,13 +32,13 @@ jobs:
       - name: Show versions
         run: |
           rustc --version
-          cargo fmt -- --version
+          cargo +nightly fmt -- --version
           cargo clippy -- --version
       - name: Check for errors
         run: cargo check --all --tests
 
       - name: Check formatting
-        run: cargo fmt --all --check
+        run: cargo +nightly fmt --all --check
 
       - name: Lint
         run: cargo clippy --all --tests -- -D warnings
