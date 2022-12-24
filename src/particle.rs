@@ -1,4 +1,4 @@
-use crate::{vector::Vector3, Real};
+use crate::{vec::Vector3, Real};
 
 #[derive(Debug, Default, Clone, Copy, PartialEq)]
 pub struct Particle {
@@ -34,10 +34,12 @@ pub struct Particle {
 }
 
 impl Particle {
+    #[must_use]
     pub fn mass(&self) -> Real {
         self.inverse_mass.recip()
     }
 
+    #[must_use]
     pub fn has_infinite_mass(&self) -> bool {
         self.inverse_mass == 0.0
     }
@@ -72,6 +74,8 @@ impl Particle {
 
 #[cfg(test)]
 mod tests {
+    use crate::assert_equal;
+
     use super::*;
 
     #[test]
@@ -90,7 +94,7 @@ mod tests {
             particle,
             Particle {
                 position: Vector3::new(0.0, 0.0, 140.0),
-                velocity: Vector3::new(0.0, -3.842384, 33.62086),
+                velocity: Vector3::new(0.0, -3.842_384, 33.620_86),
                 acceleration: Vector3::new(0.0, -1.0, 0.0),
                 damping: 0.99,
                 inverse_mass: 0.5,
@@ -101,13 +105,13 @@ mod tests {
 
     #[test]
     pub fn mass() {
-        assert_eq!(
+        assert_equal(
             Particle {
-                inverse_mass: (2 as Real).recip(), // 2.0 kg
+                inverse_mass: Real::from(2).recip(), // 2.0 kg
                 ..Default::default()
             }
             .mass(),
-            2.0
+            2.0,
         );
     }
 }

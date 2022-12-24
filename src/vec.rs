@@ -18,6 +18,7 @@ impl<T: Default + Copy, const LEN: usize> Default for Vector<T, { LEN }> {
 }
 
 impl<T: Copy + Neg<Output = T>, const LEN: usize> Vector<T, { LEN }> {
+    #[must_use]
     pub fn inverse(&self) -> Self {
         let mut elements: [T; LEN] = self.elements;
         elements.iter_mut().for_each(|a| *a = -*a);
@@ -48,12 +49,10 @@ impl<T: Copy + Mul<T, Output = T>, const LEN: usize> Mul<T> for Vector<T, { LEN 
     }
 }
 
-impl<T: Copy + Mul<T, Output = T>, const LEN: usize> Mul<Vector<T, { LEN }>>
-    for Vector<T, { LEN }>
-{
+impl<T: Copy + Mul<T, Output = T>, const LEN: usize> Mul<Self> for Vector<T, { LEN }> {
     type Output = Self;
 
-    fn mul(self, rhs: Vector<T, { LEN }>) -> Self::Output {
+    fn mul(self, rhs: Self) -> Self::Output {
         let mut elements: [T; LEN] = self.elements;
         elements
             .iter_mut()
@@ -112,20 +111,24 @@ impl<T: Sub<Output = T> + Copy, const LEN: usize> Sub for Vector<T, { LEN }> {
 }
 
 impl<const LEN: usize> Vector<Real, { LEN }> {
+    #[must_use]
     pub fn magnitude(&self) -> Real {
         self.magnitude_squared().sqrt()
     }
 
+    #[must_use]
     pub fn magnitude_squared(&self) -> Real {
         self.elements
             .iter()
             .fold(0.0 as Real, |acc, e| acc + e.powi(2))
     }
 
+    #[must_use]
     pub fn zero() -> Self {
         Self::default()
     }
 
+    #[must_use]
     pub fn normalize(&self) -> Self {
         let length = self.magnitude();
         if length > 0.0 {
@@ -135,67 +138,78 @@ impl<const LEN: usize> Vector<Real, { LEN }> {
         }
     }
 
+    #[must_use]
     pub fn dot(&self, rhs: &Self) -> Real {
         self.elements
             .iter()
             .zip(rhs.elements.iter())
-            .fold(0.0 as Real, |acc, (a, b)| (*a * *b) + acc)
+            .fold(0.0 as Real, |acc, (a, b)| (*a).mul_add(*b, acc))
     }
 }
 
 pub type Vector3 = Vector<Real, 3>;
 
 impl Vector3 {
-    pub fn new(x: Real, y: Real, z: Real) -> Self {
+    #[must_use]
+    pub const fn new(x: Real, y: Real, z: Real) -> Self {
         Self {
             elements: [x, y, z],
         }
     }
 
-    pub fn x_axis() -> Self {
+    #[must_use]
+    pub const fn x_axis() -> Self {
         Self::new(1.0, 0.0, 0.0)
     }
 
-    pub fn y_axis() -> Self {
+    #[must_use]
+    pub const fn y_axis() -> Self {
         Self::new(0.0, 1.0, 0.0)
     }
 
-    pub fn z_axis() -> Self {
+    #[must_use]
+    pub const fn z_axis() -> Self {
         Self::new(0.0, 0.0, 1.0)
     }
 
+    #[must_use]
     pub fn x(&self) -> Real {
         self[0]
     }
 
+    #[must_use]
     pub fn y(&self) -> Real {
         self[1]
     }
 
+    #[must_use]
     pub fn z(&self) -> Real {
         self[2]
     }
 
+    #[must_use]
     pub fn cross(&self, rhs: &Self) -> Self {
         Self::new(
-            self.y() * rhs.z() - self.z() * rhs.y(),
-            self.z() * rhs.x() - self.x() * rhs.z(),
-            self.x() * rhs.y() - self.y() * rhs.x(),
+            self.y().mul_add(rhs.z(), -self.z() * rhs.y()),
+            self.z().mul_add(rhs.x(), -self.x() * rhs.z()),
+            self.x().mul_add(rhs.y(), -self.y() * rhs.x()),
         )
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::assert_equal;
+
     use super::*;
 
     #[test]
     pub fn dimensions() {
         let (x, y, z) = (1.0, 2.0, 3.0);
         let vector = Vector3::new(x, y, z);
-        assert_eq!(vector.x(), x);
-        assert_eq!(vector.y(), y);
-        assert_eq!(vector.z(), z);
+        assert_equal(vector.x(), x);
+        assert_equal(vector.y(), y);
+        assert_equal(vector.z(), z);
     }
 
     #[test]
@@ -212,15 +226,15 @@ mod tests {
     #[test]
     pub fn magnitude() {
         let (x, y, z) = (1.0, 2.0, 3.0);
-        let magnitude_squared = x * x + y * y + z * z;
-        assert_eq!(Vector3::new(x, y, z).magnitude_squared(), magnitude_squared);
-        assert_eq!(Vector3::new(x, y, z).magnitude(), magnitude_squared.sqrt());
+        let magnitude_squared = (x as Real).mul_add(x, y * y);
+        assert_equal(Vector3::new(x, y, z).magnitude_squared(), magnitude_squared);
+        assert_equal(Vector3::new(x, y, z).magnitude(), magnitude_squared.sqrt());
     }
 
     #[test]
     pub fn normalize() {
         let (x, y, z) = (1.0, 2.0, 3.0);
-        let magnitude = ((x * x + y * y + z * z) as Real).sqrt();
+        let magnitude = ((x as Real).mul_add(x, y * y) as Real).sqrt();
         assert_eq!(
             Vector3::new(x, y, z).normalize(),
             Vector3::new(x / magnitude, y / magnitude, z / magnitude)
@@ -260,20 +274,20 @@ mod tests {
 
     #[test]
     pub fn index() {
-        assert_eq!(Vector3::new(1.0, 2.0, 3.0)[1], 2.0);
+        assert_equal(Vector3::new(1.0, 2.0, 3.0)[1], 2.0);
     }
 
     #[test]
     pub fn index_mut() {
         let mut vector = Vector3::new(1.0, 2.0, 3.0);
         vector[1] = 0.0;
-        assert_eq!(vector[1], 0.0);
+        assert_equal(vector[1], 0.0);
     }
 
     #[test]
     pub fn dot_product() {
         let dot_product = Vector3::new(1.0, 2.0, 3.0).dot(&Vector3::new(3.0, 2.0, 1.0));
-        assert_eq!(dot_product, 10.0);
+        assert_equal(dot_product, 10.0);
     }
 
     #[test]
@@ -291,7 +305,7 @@ mod tests {
     #[test]
     pub fn mul_assign_scalar() {
         let mut vector = Vector3::new(1.0, 2.0, -3.0);
-        vector *= 3.0;
+        vector *= 3.0 as Real;
         assert_eq!(vector, Vector3::new(3.0, 6.0, -9.0));
     }
 
