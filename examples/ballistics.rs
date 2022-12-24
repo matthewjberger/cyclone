@@ -9,19 +9,15 @@ use na::{Point2, Point3, Translation3};
 use nalgebra as na;
 use std::time::Instant;
 
-#[derive(Debug, Eq, PartialEq, Copy, Clone)]
+#[derive(Default, Debug, Eq, PartialEq, Copy, Clone)]
 enum Shot {
-	Unused,
+	#[default]
+	Unassigned,
 	Pistol,
 	Artillery,
 	Fireball,
 	Laser,
-}
-
-impl Default for Shot {
-	fn default() -> Self {
-		Self::Unused
-	}
+	Grenade,
 }
 
 #[derive(Default, Copy, Clone)]
@@ -42,7 +38,7 @@ impl Gun {
 	pub const PARTICLE_TIMEOUT_SECS: usize = 5;
 
 	pub fn fire(&mut self) {
-		if let Some(available_round) = self.rounds.iter_mut().find(|round| round.kind == Shot::Unused) {
+		if let Some(available_round) = self.rounds.iter_mut().find(|round| round.kind == Shot::Unassigned) {
 			match self.next_shot_kind {
 				Shot::Pistol => {
 					available_round.particle.inverse_mass = (2.0 as Real).recip(); // 2.0 kg
@@ -70,7 +66,13 @@ impl Gun {
 					available_round.particle.acceleration = impulse::Vector3::new(0.0, 0.0, 0.0); // No gravity
 					available_round.particle.damping = 0.99;
 				},
-				Shot::Unused => {},
+				Shot::Grenade => {
+					available_round.particle.inverse_mass = (0.9 as Real).recip(); // 200.0 kg
+					available_round.particle.velocity = impulse::Vector3::new(0.0, 15.0, 10.0);
+					available_round.particle.acceleration = impulse::Vector3::new(0.0, -10.0, 0.0);
+					available_round.particle.damping = 0.99;
+				},
+				Shot::Unassigned => {},
 			}
 			available_round.particle.position = impulse::Vector3::new(0.0, 1.5, 0.0);
 			available_round.start_time = Some(Instant::now());
@@ -81,7 +83,7 @@ impl Gun {
 
 	pub fn update(&mut self, last_frame_duration: Real) {
 		for round in self.rounds.iter_mut() {
-			if round.kind == Shot::Unused {
+			if round.kind == Shot::Unassigned {
 				continue;
 			}
 
@@ -93,7 +95,7 @@ impl Gun {
 				None => true,
 			};
 			if out_of_bounds || expired {
-				round.kind = Shot::Unused;
+				round.kind = Shot::Unassigned;
 			}
 		}
 	}
@@ -124,6 +126,7 @@ fn main() {
 					Key::Key2 => gun.next_shot_kind = Shot::Artillery,
 					Key::Key3 => gun.next_shot_kind = Shot::Fireball,
 					Key::Key4 => gun.next_shot_kind = Shot::Laser,
+					Key::Key5 => gun.next_shot_kind = Shot::Grenade,
 					_ => {},
 				}
 			}
@@ -150,7 +153,7 @@ fn main() {
 		}
 
 		for (round, bullet) in gun.rounds.iter().zip(bullets.iter_mut()) {
-			let is_used = round.kind != Shot::Unused;
+			let is_used = round.kind != Shot::Unassigned;
 			bullet.set_visible(is_used);
 			if !is_used {
 				continue;
