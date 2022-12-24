@@ -6,5 +6,5 @@ edition = "2021"
 [dependencies]
 
 [dev-dependencies]
-kiss3d = "0.28.0"
-nalgebra = "0.23.2"
+kiss3d = "0.35.0"
+nalgebra = "0.30.1"
