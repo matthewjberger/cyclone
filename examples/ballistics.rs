@@ -61,7 +61,6 @@ fn main() -> Result<()> {
 
 	while window.render() {
 		map_keyboard_input(&window, &world);
-
 		render_background(&world, &mut window, &font);
 		physics_system(0.01, &mut world)?;
 		projectile_system(&mut world)?;
