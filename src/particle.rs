@@ -54,7 +54,7 @@ impl Particle {
 	/// may be inaccurate in some cases.
 	pub fn integrate(&mut self, duration: Real) {
 		// Infinite mass should not be integrated
-		if self.inverse_mass <= 0.0 && duration > 0.0 {
+		if self.inverse_mass <= 0.0 || duration <= 0.0 {
 			return;
 		}
 
@@ -62,7 +62,8 @@ impl Particle {
 		self.position += self.velocity * duration;
 
 		// Update linear velocity from the acceleration
-		self.velocity += self.acceleration * duration;
+		let acceleration = self.acceleration + self.force_accumulator * self.inverse_mass;
+		self.velocity += acceleration * duration;
 
 		// Impose drag
 		self.velocity *= self.damping.powf(duration);
