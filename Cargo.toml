@@ -10,7 +10,9 @@ categories = ["physics", "simulation"]
 readme = "README.md"
 
 [dependencies]
+parsecs = { version = "0.1.0", git = "https://github.com/matthewjberger/parsecs", rev = "caf8d26d49a90c4b91e5855b22b3509fd59ebacd" }
 
 [dev-dependencies]
+anyhow = "1.0.68"
 kiss3d = "0.35.0"
 nalgebra = "0.30.1"
