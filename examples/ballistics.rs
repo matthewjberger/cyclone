@@ -1,20 +1,13 @@
-use anyhow::Result;
 use impulse::{Particle, Real};
-use kiss3d::{
-	event::{Action, Key, WindowEvent},
-	light::Light,
-	scene::SceneNode,
-	text::Font,
-	window::Window,
-};
-use na::{Point2, Point3, Translation3};
-use nalgebra as na;
-use parsecs::{izip, system, world::World};
-use std::{rc::Rc, time::Instant};
+use macroquad::prelude::*;
 
-#[derive(Default, Debug, Eq, PartialEq, Copy, Clone)]
+const PARTICLE_TIMEOUT_SECS: f32 = 5.0;
+const AMMO_COUNT: usize = 10;
+const CAMERA_SPEED: f32 = 10.0;
+const MOUSE_SENSITIVITY: f32 = 0.1;
+
+#[derive(Debug, PartialEq, Clone, Copy)]
 enum Shot {
-	#[default]
 	Pistol,
 	Artillery,
 	Fireball,
@@ -22,144 +15,195 @@ enum Shot {
 	Grenade,
 }
 
-#[derive(Default, Copy, Clone)]
 struct Round {
-	pub start_time: Option<Instant>,
-	pub alive: bool,
+	particle: Particle,
+	start_time: Option<f32>,
+	alive: bool,
+	trajectory: Vec<Vec3>, // Store the positions that the particle has traveled through
 }
 
-const PARTICLE_TIMEOUT_SECS: usize = 5;
-const AMMO_COUNT: usize = 10;
-
-struct NextShot(pub Shot);
-
-struct ShouldFire(pub bool);
-
-fn main() -> Result<()> {
-	let mut window = Window::new("Impulse Physics Engine - Ballistics Demo");
-	window.set_light(Light::StickToCamera);
-	let font = Font::default();
-
-	let mut world = World::new();
-
-	world.resources().borrow_mut().insert(NextShot(Shot::Pistol));
-	world.resources().borrow_mut().insert(ShouldFire(false));
-
-	let entities = world.create_entities(AMMO_COUNT);
-	for entity in entities {
-		let mut node = window.add_sphere(0.5);
-		node.set_visible(false);
-		node.set_color(0.0, 1.0, 1.0);
-		world.add_component(entity, node).unwrap();
-
-		let shot = world.resources().borrow().get::<NextShot>().unwrap().0;
-		world.add_component(entity, Round::default()).unwrap();
-
-		let position = impulse::Vector3::new(0.0, 1.5, 0.0);
-		world.add_component(entity, shot_as_particle(shot, position)).unwrap();
-	}
-
-	while window.render() {
-		map_keyboard_input(&window, &world);
-		render_background(&world, &mut window, &font);
-		physics_system(0.01, &mut world)?;
-		projectile_system(&mut world)?;
-		timeout_system(&mut world)?;
-		sync_node_system(&mut world)?;
-	}
-
-	Ok(())
+struct GameState {
+	rounds: Vec<Round>,
+	next_shot: Shot,
+	should_fire: bool,
+	camera: Camera3D,
+	yaw: f32,
+	pitch: f32,
 }
 
-fn map_keyboard_input(window: &Window, world: &World) {
-	for event in window.events().iter() {
-		if let WindowEvent::Key(key, Action::Press, _) = event.value {
-			match key {
-				Key::Key1 => assign_next_shot(world, Shot::Pistol),
-				Key::Key2 => assign_next_shot(world, Shot::Artillery),
-				Key::Key3 => assign_next_shot(world, Shot::Fireball),
-				Key::Key4 => assign_next_shot(world, Shot::Laser),
-				Key::Key5 => assign_next_shot(world, Shot::Grenade),
-				Key::Space => {
-					if let Some(should_fire) = world.resources().borrow_mut().get_mut::<ShouldFire>() {
-						should_fire.0 = true;
-					}
-				},
-				_ => {},
+impl GameState {
+	fn new() -> Self {
+		let rounds = (0..AMMO_COUNT)
+			.map(|_| Round {
+				particle: shot_as_particle(Shot::Pistol, impulse::Vector3::zero()),
+				start_time: None,
+				alive: false,
+				trajectory: Vec::new(), // Initialize the trajectory
+			})
+			.collect();
+
+		Self {
+			rounds,
+			next_shot: Shot::Pistol,
+			should_fire: false,
+			camera: Camera3D {
+				position: vec3(-30.0, 5.0, 10.0),
+				up: vec3(0.0, 1.0, 0.0),
+				target: vec3(0.0, 0.0, 0.0),
+				..Default::default()
+			},
+			yaw: 0.0,
+			pitch: 0.0,
+		}
+	}
+}
+
+#[macroquad::main("Ballistics Demo")]
+async fn main() {
+	let mut game_state = GameState::new();
+
+	loop {
+		clear_background(LIGHTGRAY);
+
+		set_camera(&game_state.camera);
+
+		handle_input(&mut game_state);
+		update_physics(&mut game_state);
+		render_scene(&game_state);
+
+		set_default_camera();
+		render_ui(&game_state);
+
+		next_frame().await
+	}
+}
+
+fn handle_input(game_state: &mut GameState) {
+	if is_key_pressed(KeyCode::Key1) {
+		game_state.next_shot = Shot::Pistol;
+	}
+	if is_key_pressed(KeyCode::Key2) {
+		game_state.next_shot = Shot::Artillery;
+	}
+	if is_key_pressed(KeyCode::Key3) {
+		game_state.next_shot = Shot::Fireball;
+	}
+	if is_key_pressed(KeyCode::Key4) {
+		game_state.next_shot = Shot::Laser;
+	}
+	if is_key_pressed(KeyCode::Key5) {
+		game_state.next_shot = Shot::Grenade;
+	}
+	if is_key_pressed(KeyCode::Space) {
+		game_state.should_fire = true;
+	}
+
+	// Camera rotation
+	let mouse_delta = mouse_delta_position();
+	let (mouse_dx, mouse_dy) = (mouse_delta.x, mouse_delta.y);
+	game_state.yaw -= mouse_dx * MOUSE_SENSITIVITY;
+	game_state.pitch -= mouse_dy * MOUSE_SENSITIVITY;
+	game_state.pitch = game_state.pitch.clamp(-89.0, 89.0);
+
+	let (yaw_sin, yaw_cos) = game_state.yaw.to_radians().sin_cos();
+	let (pitch_sin, pitch_cos) = game_state.pitch.to_radians().sin_cos();
+	let forward = vec3(yaw_cos * pitch_cos, pitch_sin, yaw_sin * pitch_cos).normalize();
+	let right = vec3(-yaw_sin, 0.0, yaw_cos).normalize();
+	let up = right.cross(forward);
+
+	// Camera movement
+	let mut movement = Vec3::ZERO;
+	if is_key_down(KeyCode::W) {
+		movement += forward;
+	}
+	if is_key_down(KeyCode::S) {
+		movement -= forward;
+	}
+	if is_key_down(KeyCode::A) {
+		movement -= right;
+	}
+	if is_key_down(KeyCode::D) {
+		movement += right;
+	}
+	if is_key_down(KeyCode::Q) {
+		movement -= up;
+	}
+	if is_key_down(KeyCode::E) {
+		movement += up;
+	}
+
+	game_state.camera.position += movement.normalize_or_zero() * CAMERA_SPEED * get_frame_time();
+	game_state.camera.target = game_state.camera.position + forward;
+	game_state.camera.up = up;
+}
+
+fn update_physics(game_state: &mut GameState) {
+	let dt = get_frame_time();
+
+	for round in &mut game_state.rounds {
+		if round.alive {
+			round.particle.integrate(dt);
+			round.trajectory.push(to_vec3(&round.particle.position)); // Store the position in the trajectory
+		} else if game_state.should_fire {
+			round.start_time = Some(get_time() as f32);
+			round.alive = true;
+			round.trajectory.clear(); // Clear previous trajectory
+			let spawn_pos = impulse::Vector3::new(0.0, 1.5, 0.0); // Fixed spawn point at the center
+			round.particle = shot_as_particle(game_state.next_shot, spawn_pos);
+			round.trajectory.push(to_vec3(&spawn_pos)); // Start trajectory from the origin
+											// Adjust velocity based on the shot type, but keep it pointing along positive Z
+			round.particle.velocity =
+				impulse::Vector3::new(0.0, round.particle.velocity.y(), round.particle.velocity.z());
+			game_state.should_fire = false;
+			break;
+		}
+
+		if round.alive {
+			let out_of_bounds = round.particle.position.y() < -5.0 || round.particle.position.z() > 200.0;
+			let expired = match round.start_time {
+				Some(start_time) => (get_time() as f32 - start_time) > PARTICLE_TIMEOUT_SECS,
+				None => true,
+			};
+			if out_of_bounds || expired {
+				round.start_time = None;
+				round.alive = false;
 			}
 		}
 	}
 }
 
-fn assign_next_shot(world: &World, shot: Shot) {
-	world.resources().borrow_mut().insert(NextShot(shot))
+fn render_scene(game_state: &GameState) {
+	// Draw ground grid
+	for i in (0..=20).step_by(1) {
+		let pos = i as f32 * 10.0 - 100.0;
+		draw_line_3d(vec3(-100.0, 0.0, pos), vec3(100.0, 0.0, pos), BLACK);
+		draw_line_3d(vec3(pos, 0.0, -100.0), vec3(pos, 0.0, 100.0), BLACK);
+	}
+
+	// Draw launch point
+	draw_sphere(Vec3::new(0.0, 1.5, 0.0), 0.5, None, GREEN);
+
+	// Draw particles and their trajectories
+	for round in &game_state.rounds {
+		if round.alive {
+			draw_sphere(to_vec3(&round.particle.position), 0.5, None, BLUE);
+
+			// Draw trajectory
+			if round.trajectory.len() > 1 {
+				for i in 0..(round.trajectory.len() - 1) {
+					draw_line_3d(round.trajectory[i], round.trajectory[i + 1], GREEN);
+				}
+			}
+		}
+	}
 }
 
-fn render_background(world: &World, window: &mut Window, font: &Rc<Font>) {
-	if let Some(NextShot(shot)) = world.resources().borrow().get::<NextShot>() {
-		window.draw_text(
-			&format!("Current Ammo Type: {:?}", shot),
-			&Point2::origin(),
-			36.0,
-			font,
-			&Point3::new(0.0, 1.0, 1.0),
-		);
-	}
-	for offset in (0..200).step_by(10) {
-		window.draw_line(
-			&Point3::new(-5.0, 0.0, offset as _),
-			&Point3::new(5.0, 0.0, offset as _),
-			&Point3::new(0.75, 0.75, 0.75),
-		);
-	}
+fn render_ui(game_state: &GameState) {
+	let text = format!("Current Ammo Type: {:?}", game_state.next_shot);
+	draw_text(&text, 10.0, 30.0, 30.0, DARKGRAY);
+	draw_text("WASD: Move, Mouse: Look, Q/E: Up/Down", 10.0, 60.0, 20.0, DARKGRAY);
+	draw_text("1-5: Change ammo, Space: Fire", 10.0, 90.0, 20.0, DARKGRAY);
 }
-
-system!(physics_system, [_resources, _entity], (duration: f32), (particle: Particle, round: Round) -> Result<()> {
-	if round.alive {
-		particle.integrate(duration);
-	}
-	Ok(())
-});
-
-system!(projectile_system, [resources, _entity], (), (particle: Particle, round: Round) -> Result<()> {
-	if round.alive {
-		return Ok(())
-	}
-	if matches!(resources.borrow().get::<ShouldFire>(), Some(ShouldFire(true))) {
-		round.start_time = Some(Instant::now());
-		round.alive = true;
-		let position = impulse::Vector3::new(0.0, 1.5, 0.0);
-		*particle = shot_as_particle(resources.borrow().get::<NextShot>().unwrap().0, position);
-		resources.borrow_mut().get_mut::<ShouldFire>().as_deref_mut().unwrap().0 = false;
-	}
-	Ok(())
-});
-
-system!(timeout_system, [_resources, _entity], (), (round: Round, particle: Particle) -> Result<()> {
-	if !round.alive {
-		return Ok(());
-	}
-	let out_of_bounds = particle.position.y() < 0.0 || particle.position.z() > 200.0;
-	let expired = match round.start_time {
-		Some(instant) => (Instant::now() - instant).as_secs() > PARTICLE_TIMEOUT_SECS as _,
-		None => true,
-	};
-	if out_of_bounds || expired {
-		round.start_time = None;
-		round.alive = false;
-	}
-	Ok(())
-});
-
-system!(sync_node_system, [_resources, _entity], (), (node: SceneNode, particle: Particle, round: Round) -> Result<()> {
-	node.set_visible(round.alive);
-	node.set_local_translation(Translation3::new(
-		particle.position.x() as _,
-		particle.position.y() as _,
-		particle.position.z() as _,
-	));
-	Ok(())
-});
 
 fn shot_as_particle(shot: Shot, position: impulse::Vector3) -> Particle {
 	match shot {
@@ -215,4 +259,8 @@ fn shot_as_particle(shot: Shot, position: impulse::Vector3) -> Particle {
 			}
 		},
 	}
+}
+
+fn to_vec3(vec: &impulse::Vector3) -> Vec3 {
+	vec3(vec.x(), vec.y(), vec.z())
 }

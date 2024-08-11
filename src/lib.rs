@@ -20,8 +20,6 @@ pub fn reals_are_equal(a: Real, b: Real) -> bool {
 pub fn assert_equal(actual: Real, expected: Real) {
 	assert!(
 		reals_are_equal(actual, expected),
-		"left: {:?} not equal right: {:?}",
-		actual,
-		expected
+		"left: {actual:?} not equal right: {expected:?}",
 	);
 }
