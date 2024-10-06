@@ -19,7 +19,8 @@ struct Round {
 	particle: Particle,
 	start_time: Option<f32>,
 	alive: bool,
-	trajectory: Vec<Vec3>, // Store the positions that the particle has traveled through
+	trajectory: Vec<Vec3>,
+	color: Color,
 }
 
 struct GameState {
@@ -38,7 +39,8 @@ impl GameState {
 				particle: shot_as_particle(Shot::Pistol, impulse::Vector3::zero()),
 				start_time: None,
 				alive: false,
-				trajectory: Vec::new(), // Initialize the trajectory
+				trajectory: Vec::new(),
+				color: shot_color(Shot::Pistol),
 			})
 			.collect();
 
@@ -98,7 +100,6 @@ fn handle_input(game_state: &mut GameState) {
 		game_state.should_fire = true;
 	}
 
-	// Camera rotation
 	let mouse_delta = mouse_delta_position();
 	let (mouse_dx, mouse_dy) = (mouse_delta.x, mouse_delta.y);
 	game_state.yaw -= mouse_dx * MOUSE_SENSITIVITY;
@@ -111,7 +112,6 @@ fn handle_input(game_state: &mut GameState) {
 	let right = vec3(-yaw_sin, 0.0, yaw_cos).normalize();
 	let up = right.cross(forward);
 
-	// Camera movement
 	let mut movement = Vec3::ZERO;
 	if is_key_down(KeyCode::W) {
 		movement += forward;
@@ -143,17 +143,17 @@ fn update_physics(game_state: &mut GameState) {
 	for round in &mut game_state.rounds {
 		if round.alive {
 			round.particle.integrate(dt);
-			round.trajectory.push(to_vec3(&round.particle.position)); // Store the position in the trajectory
+			round.trajectory.push(to_vec3(&round.particle.position));
 		} else if game_state.should_fire {
 			round.start_time = Some(get_time() as f32);
 			round.alive = true;
-			round.trajectory.clear(); // Clear previous trajectory
-			let spawn_pos = impulse::Vector3::new(0.0, 1.5, 0.0); // Fixed spawn point at the center
+			round.trajectory.clear();
+			let spawn_pos = impulse::Vector3::new(0.0, 1.5, 0.0);
 			round.particle = shot_as_particle(game_state.next_shot, spawn_pos);
-			round.trajectory.push(to_vec3(&spawn_pos)); // Start trajectory from the origin
-											// Adjust velocity based on the shot type, but keep it pointing along positive Z
+			round.trajectory.push(to_vec3(&spawn_pos));
 			round.particle.velocity =
 				impulse::Vector3::new(0.0, round.particle.velocity.y(), round.particle.velocity.z());
+			round.color = shot_color(game_state.next_shot);
 			game_state.should_fire = false;
 			break;
 		}
@@ -173,25 +173,22 @@ fn update_physics(game_state: &mut GameState) {
 }
 
 fn render_scene(game_state: &GameState) {
-	// Draw ground grid
 	for i in (0..=20).step_by(1) {
 		let pos = i as f32 * 10.0 - 100.0;
 		draw_line_3d(vec3(-100.0, 0.0, pos), vec3(100.0, 0.0, pos), BLACK);
 		draw_line_3d(vec3(pos, 0.0, -100.0), vec3(pos, 0.0, 100.0), BLACK);
 	}
 
-	// Draw launch point
-	draw_sphere(Vec3::new(0.0, 1.5, 0.0), 0.5, None, GREEN);
+	// Draw launch point with the color of the currently selected shot
+	draw_sphere(Vec3::new(0.0, 1.5, 0.0), 0.5, None, shot_color(game_state.next_shot));
 
-	// Draw particles and their trajectories
 	for round in &game_state.rounds {
 		if round.alive {
-			draw_sphere(to_vec3(&round.particle.position), 0.5, None, BLUE);
+			draw_sphere(to_vec3(&round.particle.position), 0.5, None, round.color);
 
-			// Draw trajectory
 			if round.trajectory.len() > 1 {
 				for i in 0..(round.trajectory.len() - 1) {
-					draw_line_3d(round.trajectory[i], round.trajectory[i + 1], GREEN);
+					draw_line_3d(round.trajectory[i], round.trajectory[i + 1], round.color);
 				}
 			}
 		}
@@ -207,57 +204,56 @@ fn render_ui(game_state: &GameState) {
 
 fn shot_as_particle(shot: Shot, position: impulse::Vector3) -> Particle {
 	match shot {
-		Shot::Pistol => {
-			Particle {
-				inverse_mass: (2.0 as Real).recip(),             // 2.0 kg
-				velocity: impulse::Vector3::new(0.0, 0.0, 35.0), // 35 m/s
-				acceleration: impulse::Vector3::new(0.0, -1.0, 0.0),
-				damping: 0.99,
-				position,
-				force_accumulator: impulse::Vector3::zero(),
-			}
+		Shot::Pistol => Particle {
+			inverse_mass: (2.0 as Real).recip(),
+			velocity: impulse::Vector3::new(0.0, 0.0, 35.0),
+			acceleration: impulse::Vector3::new(0.0, -1.0, 0.0),
+			damping: 0.99,
+			position,
+			force_accumulator: impulse::Vector3::zero(),
 		},
-		Shot::Artillery => {
-			Particle {
-				inverse_mass: (200.0 as Real).recip(),            // 200.0 kg
-				velocity: impulse::Vector3::new(0.0, 30.0, 40.0), // 50 m/s
-				acceleration: impulse::Vector3::new(0.0, -20.0, 0.0),
-				damping: 0.99,
-				position,
-				force_accumulator: impulse::Vector3::zero(),
-			}
+		Shot::Artillery => Particle {
+			inverse_mass: (200.0 as Real).recip(),
+			velocity: impulse::Vector3::new(0.0, 30.0, 40.0),
+			acceleration: impulse::Vector3::new(0.0, -20.0, 0.0),
+			damping: 0.99,
+			position,
+			force_accumulator: impulse::Vector3::zero(),
 		},
-		Shot::Fireball => {
-			Particle {
-				inverse_mass: (1.0 as Real).recip(),                // 1.0 kg
-				velocity: impulse::Vector3::new(0.0, 00.0, 10.0),   // 5 m/s
-				acceleration: impulse::Vector3::new(0.0, 0.6, 0.0), // Floats up
-				damping: 0.9,
-				position,
-				force_accumulator: impulse::Vector3::zero(),
-			}
+		Shot::Fireball => Particle {
+			inverse_mass: (1.0 as Real).recip(),
+			velocity: impulse::Vector3::new(0.0, 00.0, 10.0),
+			acceleration: impulse::Vector3::new(0.0, 0.6, 0.0),
+			damping: 0.9,
+			position,
+			force_accumulator: impulse::Vector3::zero(),
 		},
-		Shot::Laser => {
-			// Note that this is the kind of laser bolt seen in films, not a realistic laser beam!
-			Particle {
-				inverse_mass: (0.1 as Real).recip(),                // 1.0 kg
-				velocity: impulse::Vector3::new(0.0, 0.0, 100.0),   // 100 m/s
-				acceleration: impulse::Vector3::new(0.0, 0.0, 0.0), // No gravity
-				damping: 0.99,
-				position,
-				force_accumulator: impulse::Vector3::zero(),
-			}
+		Shot::Laser => Particle {
+			inverse_mass: (0.1 as Real).recip(),
+			velocity: impulse::Vector3::new(0.0, 0.0, 100.0),
+			acceleration: impulse::Vector3::new(0.0, 0.0, 0.0),
+			damping: 0.99,
+			position,
+			force_accumulator: impulse::Vector3::zero(),
 		},
-		Shot::Grenade => {
-			Particle {
-				inverse_mass: (0.9 as Real).recip(), // 200.0 kg
-				velocity: impulse::Vector3::new(0.0, 15.0, 10.0),
-				acceleration: impulse::Vector3::new(0.0, -10.0, 0.0),
-				damping: 0.99,
-				position,
-				force_accumulator: impulse::Vector3::zero(),
-			}
+		Shot::Grenade => Particle {
+			inverse_mass: (0.9 as Real).recip(),
+			velocity: impulse::Vector3::new(0.0, 15.0, 10.0),
+			acceleration: impulse::Vector3::new(0.0, -10.0, 0.0),
+			damping: 0.99,
+			position,
+			force_accumulator: impulse::Vector3::zero(),
 		},
+	}
+}
+
+fn shot_color(shot: Shot) -> Color {
+	match shot {
+		Shot::Pistol => DARKGRAY,   // Metallic color for pistol
+		Shot::Artillery => BROWN,   // Earthy color for artillery
+		Shot::Fireball => ORANGE,   // Fiery color for fireball
+		Shot::Laser => SKYBLUE,     // Bright blue for laser
+		Shot::Grenade => DARKGREEN, // Military green for grenade
 	}
 }
 
